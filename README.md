@@ -22,3 +22,15 @@ roccat-vulcan -f
 * Type 'make && make install' in /src. 
 * Replug keyboard or reboot unless you want to run as root.
 * Run `roccat-vulcan -f`.
+
+
+## If it does not work ...
+* When not running as root, you need to be a member of
+  the `plugdev` group (check with `id`), and udev must have
+  set up the device nodes accordingly.
+* Check the vendor/device ID of your keyboard with `lsusb`.
+  The entry should look like this:
+  ```
+  Bus 001 Device 035: ID 1e7d:307a ROCCAT
+  ```
+  If your IDs aren't `1e7d:307a`, add an issue about it.
