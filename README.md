@@ -13,7 +13,7 @@ sudo apt install roccat-vulcan
 sudo udevadm control --reload-rules && udevadm trigger
 # You might have to replug your keyboard or reboot at this
 # point, so udev can update the permissions on the device nodes.
-roccat-vulcan -f
+roccat-vulcan
 ```
 
 ### Manual build (Expert zone)
@@ -21,7 +21,7 @@ roccat-vulcan -f
 * You need to install development packages for libevdev and libhidapi.
 * Type 'make && make install' in /src. 
 * Replug keyboard or reboot unless you want to run as root.
-* Run `roccat-vulcan -f`.
+* Run `roccat-vulcan`.
 
 
 ## If it does not work ...
