@@ -10,43 +10,53 @@
 
 hid_device *ctrl_handle, *led_handle;
 
-int rv_open_device(unsigned short vendor_id, unsigned short product_id) {
+int rv_open_device() {
 	wchar_t wstr[RV_MAX_STR];
 	struct hid_device_info *devs, *dev, *ctrl, *led;
+	int p = 0;
 
-	devs = hid_enumerate(vendor_id, product_id); dev = devs;
-	ctrl = NULL; led = NULL;
-	while (dev) {
-		if (dev->interface_number == RV_CTRL_INTERFACE) ctrl = dev;
-		if (dev->interface_number == RV_LED_INTERFACE)   led = dev;
-		dev = dev->next;
+	while (rv_products[p]) {
+		unsigned short product_id = rv_products[p];
+
+		devs = hid_enumerate(RV_VENDOR, product_id);
+		dev = devs;
+		ctrl = NULL;
+		led = NULL;
+		while (dev) {
+			if (dev->interface_number == RV_CTRL_INTERFACE) ctrl = dev;
+			if (dev->interface_number == RV_LED_INTERFACE)   led = dev;
+			dev = dev->next;
+		}
+
+		if (!ctrl || !led) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No matching device found\n", RV_VENDOR, product_id);
+			goto NEXT_PRODUCT;
+		}
+
+		ctrl_handle = hid_open_path(ctrl->path);
+		led_handle  = hid_open_path(led->path);
+
+		if (!ctrl_handle || !led_handle) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open HID devices %s and/or %s\n", RV_VENDOR, product_id, ctrl->path, led->path);
+			goto NEXT_PRODUCT;
+		}
+
+		if (hid_get_product_string(ctrl_handle, wstr, RV_MAX_STR) < 0) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to get product string.\n", RV_VENDOR, product_id);
+			goto NEXT_PRODUCT;
+		};
+
+		rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): %ls, devices %s and %s\n", RV_VENDOR, product_id, wstr, ctrl->path, led->path);
+		hid_free_enumeration(devs);
+		return 0;
+
+		NEXT_PRODUCT:
+		hid_free_enumeration(devs); devs = NULL;
+		p++;
 	}
 
-	if (!ctrl || !led) {
-		rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No matching device found\n", vendor_id, product_id);
-		hid_free_enumeration(devs);
-		return RV_FAILURE;
-	}
-
-	ctrl_handle = hid_open_path(ctrl->path);
-	led_handle  = hid_open_path(led->path);
-
-	if (!ctrl_handle || !led_handle) {
-		rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open HID devices %s and/or %s\n", vendor_id, product_id, ctrl->path, led->path);
-		hid_free_enumeration(devs);
-		return RV_FAILURE;
-	}
-
-
-	if (hid_get_product_string(ctrl_handle, wstr, RV_MAX_STR) < 0) {
-		rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to get product string.\n", vendor_id, product_id);
-		hid_free_enumeration(devs);
-		return RV_FAILURE;
-	};
-
-	rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): %ls, devices %s and %s\n", vendor_id, product_id, wstr, ctrl->path, led->path);
-	hid_free_enumeration(devs);
-	return 0;
+	if (devs) hid_free_enumeration(devs);
+	return -1;
 }
 
 int rv_wait_for_ctrl_device() {

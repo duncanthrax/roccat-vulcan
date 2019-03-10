@@ -4,9 +4,7 @@
 #define _H_ROCCAT_VULCAN
 
 #define RV_VENDOR   0x1e7d
-#define RV_PRODUCT  0x307a
 #define RV_VENDOR_STR  "1e7d"
-#define RV_PRODUCT_STR "307a"
 
 #define RV_INPUT_DEV_DIR "/sys/class/input"
 #define RV_INPUT_DEV_PREFIX "event"
@@ -47,10 +45,12 @@ rv_rgb rv_color_off;
 // Globals (roccat-vulcan.c)
 int rv_verbose;
 int rv_daemon;
+uint16_t rv_products[3];
+char * rv_products_str[3];
 rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
-int rv_open_device(unsigned short vendor_id, unsigned short product_id);
+int rv_open_device();
 int rv_wait_for_ctrl_device();
 int rv_get_ctrl_report(unsigned char report_id);
 int rv_set_ctrl_report(unsigned char report_id, int mode, int byteopt);

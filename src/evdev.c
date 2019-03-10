@@ -74,25 +74,30 @@ int rv_init_evdev() {
 	num_devs = scandir(RV_INPUT_DEV_DIR, &event_dev_list, prefix_filter, NULL);
 
 	if (num_devs >= 0) {
-		for (i = 0; i < num_devs; i++) {
-			snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/product", event_dev_list[i]->d_name);
-			if (cmp_file(fpath, RV_PRODUCT_STR) == RV_SUCCESS) {
-				snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/vendor", event_dev_list[i]->d_name);
-				if (cmp_file(fpath, RV_VENDOR_STR) == RV_SUCCESS) {
-					snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/capabilities/led", event_dev_list[i]->d_name);
-					if (cmp_file(fpath, "1f") == RV_SUCCESS) {
-						snprintf(event_dev, RV_MAX_STR, "/dev/input/%s", event_dev_list[i]->d_name);
+		int p = 0;
+		while (rv_products_str[p]) {
+			for (i = 0; i < num_devs; i++) {
+				snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/product", event_dev_list[i]->d_name);
+				if (cmp_file(fpath, rv_products_str[p]) == RV_SUCCESS) {
+					snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/vendor", event_dev_list[i]->d_name);
+					if (cmp_file(fpath, RV_VENDOR_STR) == RV_SUCCESS) {
+						snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/capabilities/led", event_dev_list[i]->d_name);
+						if (cmp_file(fpath, "1f") == RV_SUCCESS) {
+							snprintf(event_dev, RV_MAX_STR, "/dev/input/%s", event_dev_list[i]->d_name);
+							break;
+						}
 					}
 				}
 			}
-			free(event_dev_list[i]);
+			p++;
 		}
-		free(event_dev_list);
 	}
 	else {
 		rv_printf(RV_LOG_VERBOSE, "Error: No event input devices in %s\n", RV_INPUT_DEV_DIR);
 		return(RV_FAILURE);
 	}
+
+	free(event_dev_list);
 
 	if (!event_dev[0]) {
 		rv_printf(RV_LOG_VERBOSE, "Error: No event input device found\n");

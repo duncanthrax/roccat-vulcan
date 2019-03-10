@@ -8,6 +8,8 @@
 #include "roccat-vulcan.h"
 
 // Globals
+uint16_t rv_products[3]   = { 0x3098, 0x307a,  0x0000 };
+char * rv_products_str[3] = { "3098", "307a",  NULL };
 int rv_verbose = 0;
 int rv_daemon  = 0;
 rv_rgb rv_colors[RV_NUM_COLORS] = {
@@ -124,7 +126,7 @@ int main(int argc, char* argv[])
 
 	switch (mode) {
 		case RV_MODE_WAVE:
-			if (rv_open_device(RV_VENDOR, RV_PRODUCT) < 0) {
+			if (rv_open_device() < 0) {
 				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
 				return RV_FAILURE;
 			}
@@ -159,7 +161,7 @@ int main(int argc, char* argv[])
 				close(2);
 			}
 
-			if (rv_open_device(RV_VENDOR, RV_PRODUCT) < 0) {
+			if (rv_open_device() < 0) {
 				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
 				return RV_FAILURE;
 			}
