@@ -47,6 +47,7 @@ rv_rgb rv_color_off;
 // Globals (roccat-vulcan.c)
 int rv_verbose;
 int rv_daemon;
+rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
 int rv_open_device(unsigned short vendor_id, unsigned short product_id);
@@ -63,6 +64,7 @@ void rv_printf(int verbose, const char *format, ...);
 // Evdev
 int rv_init_evdev();
 int rv_update_evdev();
+int rv_get_keycode();
 unsigned char rv_active_keys[RV_NUM_KEYS];
 unsigned char rv_released_keys[RV_MAX_CONCURRENT_KEYS];
 unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
@@ -71,7 +73,5 @@ unsigned char rv_repeated_keys[RV_MAX_CONCURRENT_KEYS];
 // FX functions (fx.c)
 int rv_fx_init();
 int rv_fx_impact();
-void rv_led_set(unsigned char *map, unsigned char k, unsigned char r, unsigned char g, unsigned char b);
-void rv_led_get(unsigned char *map, unsigned char k, unsigned char *r, unsigned char *g, unsigned char *b);
 
 #endif

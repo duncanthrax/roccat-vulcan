@@ -107,6 +107,12 @@ int rv_init_evdev() {
 	return RV_SUCCESS;
 }
 
+int rv_get_keycode(char *ev_keyname) {
+	int ev_code = libevdev_event_code_from_name(EV_KEY, ev_keyname);
+	if (ev_code < 0 || ev_code > 254) return -1;
+	return (rv_ev2rv[ev_code] == 0xff) ? -1 : rv_ev2rv[ev_code];
+}
+
 int rv_update_evdev() {
 	struct input_event ev;
 	int rc;

@@ -275,11 +275,9 @@ int rv_send_led_map(rv_rgb_map *src) {
 
 	memset(hwmap, 0, sizeof(hwmap));
 	// Translate linear to hardware map
-	if (src) for (k = 0; k < RV_NUM_KEYS; k++) {
-		rgb = src->key[k];
-		// rgb.r = (rgb.r >> 4) & 0x00ff;
-		// rgb.g = (rgb.g >> 4) & 0x00ff;
-		// rgb.b = (rgb.b >> 4) & 0x00ff;
+	for (k = 0; k < RV_NUM_KEYS; k++) {
+		rgb = rv_fixed[k] ? *(rv_fixed[k]) : (src ? src->key[k] : rv_color_off);
+
 		rgb.r = (rgb.r > 255) ? 255 : (rgb.r < 0) ? 0 : rgb.r;
 		rgb.g = (rgb.g > 255) ? 255 : (rgb.g < 0) ? 0 : rgb.g;
 		rgb.b = (rgb.b > 255) ? 255 : (rgb.b < 0) ? 0 : rgb.b;

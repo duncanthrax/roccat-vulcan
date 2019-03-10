@@ -23,19 +23,29 @@ rv_rgb rv_colors[RV_NUM_COLORS] = {
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0000 }
 };
 
+rv_rgb* rv_fixed[RV_NUM_KEYS];
+
 rv_rgb rv_color_off = { .r = 0x0000, .g = 0x0000, .b = 0x0000 };
 
 void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "\n");
-	rv_printf(RV_LOG_NORMAL, "-f         : Fork into background and play 'impact' effect. In this\n");
-	rv_printf(RV_LOG_NORMAL, "             mode, colors can be changed by providing -c options.\n");
-	rv_printf(RV_LOG_NORMAL, "-w [speed] : Set up 'wave' effect with desired speed (1-12) and quit.\n");
-	rv_printf(RV_LOG_NORMAL, "-c [r,g,b] : Change up to 7 colors for 'impact' effect by repeatedly\n");
-	rv_printf(RV_LOG_NORMAL, "             specifying this option. RGB values are given as signed\n");
-	rv_printf(RV_LOG_NORMAL, "             16-bit integers. See the README for more information on\n");
-	rv_printf(RV_LOG_NORMAL, "             the colors and the rationale behind this.\n");
-	rv_printf(RV_LOG_NORMAL, "-v         : Be verbose. In '-f' mode, don't fork but keep logging to\n");
-	rv_printf(RV_LOG_NORMAL, "             STDOUT instead.\n");
+	rv_printf(RV_LOG_NORMAL, "By default, %s forks into background and plays 'impact' effect. In this\n", arg0);
+	rv_printf(RV_LOG_NORMAL, "mode, effect colors can be changed by providing -c options and keys can be\n");
+	rv_printf(RV_LOG_NORMAL, "set to a fixed color using -k options\n");
+	rv_printf(RV_LOG_NORMAL, "\n");
+	rv_printf(RV_LOG_NORMAL, "-c [r,g,b]         : Change up to 7 colors for 'impact' effect by repeatedly\n");
+	rv_printf(RV_LOG_NORMAL, "                     specifying this option. RGB values are given as signed\n");
+	rv_printf(RV_LOG_NORMAL, "                     16-bit integers (−32768..32767). See the README for more\n");
+	rv_printf(RV_LOG_NORMAL, "                     information on why this is the case.\n");
+	rv_printf(RV_LOG_NORMAL, "-k [keyname:r,g,b] : Set the key with 'keyname' to a static color. Keynames\n");
+	rv_printf(RV_LOG_NORMAL, "                     are evdev KEY_* constants. RGB values should be in the\n");
+	rv_printf(RV_LOG_NORMAL, "                     range of 0..255.\n");
+	rv_printf(RV_LOG_NORMAL, "-v                 : Be verbose and don't fork, keep logging to STDOUT instead.\n");
+	rv_printf(RV_LOG_NORMAL, "\n");
+	rv_printf(RV_LOG_NORMAL, "-w [speed]         : Set up 'wave' effect with desired speed (1-11) and quit.\n");
+	rv_printf(RV_LOG_NORMAL, "                     This effect is run by the hardware and does not require\n");
+	rv_printf(RV_LOG_NORMAL, "                     host support. Other command line options do not apply.\n");
+	rv_printf(RV_LOG_NORMAL, "\n");
 	exit(RV_FAILURE);
 }
 
@@ -43,22 +53,53 @@ int main(int argc, char* argv[])
 {
 	int opt, i;
 	pid_t pid;
-	int mode  = RV_MODE_NONE;
+	int mode  = RV_MODE_FX;
 	int speed = 6;
 	int rgb_idx = 0;
 	rv_rgb rgb;
-	
+	char *keyname;
+
+	memset(rv_fixed, 0, sizeof(rv_fixed));
+
 	rv_printf(RV_LOG_NORMAL, "ROCCAT Vulcan for Linux [github.com/duncanthrax/roccat-vulcan]\n");
 
-	while ((opt = getopt(argc, argv, "fvw:c:")) != -1) {
+	while ((opt = getopt(argc, argv, "hvw:c:k:")) != -1) {
 		switch (opt) {
+			case 'h':
+				show_usage(argv[0]);
+			break;
 			case 'c':
 				if (rgb_idx < RV_NUM_COLORS && sscanf(optarg, "%hd,%hd,%hd", &(rgb.r), &(rgb.g), &(rgb.b)) == 3) {
 					rv_printf(RV_LOG_NORMAL, "Color %u set to %hd,%hd,%hd\n", rgb_idx, rgb.r, rgb.g, rgb.b);
 					rv_colors[rgb_idx] = rgb;
 				}
-				else rv_printf(RV_LOG_NORMAL, "Error: Unable to parse color (-c) argument\n");
+				else {
+					rv_printf(RV_LOG_NORMAL, "Error: Unable to parse color (-c) argument\n");
+					show_usage(argv[0]);
+				}
 				rgb_idx++;
+			break;
+			case 'k':
+				if (sscanf(optarg, "%m[^:]:%hd,%hd,%hd", &keyname, &(rgb.r), &(rgb.g), &(rgb.b)) == 4) {
+					int k = rv_get_keycode(keyname);
+					if (k >= 0) {
+						rv_fixed[k] = malloc(sizeof(rv_rgb));
+						if (!rv_fixed[k]) {
+							rv_printf(RV_LOG_NORMAL, "Error: Unable to allocate memory\n");
+							return -1;
+						}
+						memcpy(rv_fixed[k], &rgb, sizeof(rv_rgb));
+						rv_printf(RV_LOG_NORMAL, "Key %s set to fixed color %hd,%hd,%hd\n", keyname, rgb.r, rgb.g, rgb.b);
+					}
+					else {
+						rv_printf(RV_LOG_NORMAL, "Error: Unknown key code '%s'\n", keyname);
+						return -1;
+					}
+				}
+				else {
+					rv_printf(RV_LOG_NORMAL, "Error: Unable to parse key (-k) argument\n");
+					show_usage(argv[0]);
+				}
 			break;
 			case 'w':
 				mode  = RV_MODE_WAVE;
@@ -68,9 +109,6 @@ int main(int argc, char* argv[])
 					if (speed < 1) speed = 1;
 				}
 				else speed = 6;
-			break;
-			case 'f':
-				mode = RV_MODE_FX;
 			break;
 			case 'v':
 				rv_verbose = 1;
