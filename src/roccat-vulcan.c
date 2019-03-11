@@ -35,13 +35,13 @@ void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "mode, effect colors can be changed by providing -c options and keys can be\n");
 	rv_printf(RV_LOG_NORMAL, "set to a fixed color using -k options\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
-	rv_printf(RV_LOG_NORMAL, "-c [r,g,b]         : Change up to 7 colors for 'impact' effect by repeatedly\n");
-	rv_printf(RV_LOG_NORMAL, "                     specifying this option. RGB values are given as signed\n");
-	rv_printf(RV_LOG_NORMAL, "                     16-bit integers (−32768..32767). See the README for more\n");
-	rv_printf(RV_LOG_NORMAL, "                     information on why this is the case.\n");
-	rv_printf(RV_LOG_NORMAL, "-k [keyname:r,g,b] : Set the key with 'keyname' to a static color. Keynames\n");
+	rv_printf(RV_LOG_NORMAL, "-c [colorIdx:r,g,b]: Change effect colors. Up to 10 colors with 'colorIdx' values\n");
+	rv_printf(RV_LOG_NORMAL, "                     in the range of 0..9 can be specified. RGB values are given as\n");
+	rv_printf(RV_LOG_NORMAL, "                     signed integers (−32768..32767), with effective values\n");
+	rv_printf(RV_LOG_NORMAL, "                     being 0..255. Check the README.md for more information.\n");
+	rv_printf(RV_LOG_NORMAL, "-k [keyName:r,g,b] : Set the key with 'keyName' to a static color. Keynames\n");
 	rv_printf(RV_LOG_NORMAL, "                     are evdev KEY_* constants. RGB values should be in the\n");
-	rv_printf(RV_LOG_NORMAL, "                     range of 0..255.\n");
+	rv_printf(RV_LOG_NORMAL, "                     effective range of 0..255.\n");
 	rv_printf(RV_LOG_NORMAL, "-v                 : Be verbose and don't fork, keep logging to STDOUT instead.\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
 	rv_printf(RV_LOG_NORMAL, "-w [speed]         : Set up 'wave' effect with desired speed (1-11) and quit.\n");
@@ -71,15 +71,20 @@ int main(int argc, char* argv[])
 				show_usage(argv[0]);
 			break;
 			case 'c':
-				if (rgb_idx < RV_NUM_COLORS && sscanf(optarg, "%hd,%hd,%hd", &(rgb.r), &(rgb.g), &(rgb.b)) == 3) {
-					rv_printf(RV_LOG_NORMAL, "Color %u set to %hd,%hd,%hd\n", rgb_idx, rgb.r, rgb.g, rgb.b);
-					rv_colors[rgb_idx] = rgb;
+				if (sscanf(optarg, "%d:%hd,%hd,%hd", &rgb_idx, &(rgb.r), &(rgb.g), &(rgb.b)) == 4) {
+					if (rgb_idx >= 0 && rgb_idx < 10) {
+						rv_printf(RV_LOG_NORMAL, "Color %u set to %hd,%hd,%hd\n", rgb_idx, rgb.r, rgb.g, rgb.b);
+						rv_colors[rgb_idx] = rgb;
+					}
+					else {
+						rv_printf(RV_LOG_NORMAL, "Error: No such color index '%d'\n", rgb_idx);
+						show_usage(argv[0]);
+					}
 				}
 				else {
 					rv_printf(RV_LOG_NORMAL, "Error: Unable to parse color (-c) argument\n");
 					show_usage(argv[0]);
 				}
-				rgb_idx++;
 			break;
 			case 'k':
 				if (sscanf(optarg, "%m[^:]:%hd,%hd,%hd", &keyname, &(rgb.r), &(rgb.g), &(rgb.b)) == 4) {
