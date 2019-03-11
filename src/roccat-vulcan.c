@@ -13,16 +13,28 @@ char * rv_products_str[3] = { "3098", "307a",  NULL };
 int rv_verbose = 0;
 int rv_daemon  = 0;
 rv_rgb rv_colors[RV_NUM_COLORS] = {
-	{ .r = 0x0000, .g = 0x0000, .b =  0x0077 }, // Base color, dark blue
-	{ .r = 0x08ff, .g = 0x0000, .b = -0x00ff },	// Real typing color, initial key (over-red and under-blue)
-	{ .r = 0x08ff, .g = 0x0000, .b = -0x008f },	// Real typing color, second-stage key
-	{ .r = 0x08ff, .g = 0x0000, .b =  0x0000 },	// Real typing color, third-stage key
-	{ .r = 0x00bb, .g = 0x0000, .b =  0x00cc }, // Ghost typing color, initial key
-	{ .r = 0x0099, .g = 0x0000, .b =  0x00bb }, // Ghost typing color, second-stage key
-	{ .r = 0x0055, .g = 0x0000, .b =  0x00aa }, // Ghost typing color, third-stage key
+	{ .r = 0x0000, .g = 0x0000, .b =  0x0077 },
+	{ .r = 0x08ff, .g = 0x0000, .b = -0x00ff },
+	{ .r = 0x08ff, .g = 0x0000, .b = -0x008f },
+	{ .r = 0x08ff, .g = 0x0000, .b =  0x0000 },
+	{ .r = 0x00bb, .g = 0x0000, .b =  0x00cc },
+	{ .r = 0x0099, .g = 0x0000, .b =  0x00bb },
+	{ .r = 0x0055, .g = 0x0000, .b =  0x00aa },
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0000 },
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0000 },
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0000 }
+};
+char * rv_colors_desc[RV_NUM_COLORS] = {
+	"Base keyboard color (dark blue)",
+	"Typing color, initial key (over-red, under-blue)",
+	"Typing color, first neighbor key",
+	"Typing color, second neighbor key",
+	"Ghost typing color, initial key",
+	"Ghost typing color, first neighbor key",
+	"Ghost typing color, second neighbor key",
+	NULL,
+	NULL,
+	NULL
 };
 
 rv_rgb* rv_fixed[RV_NUM_KEYS];
@@ -144,6 +156,15 @@ int main(int argc, char* argv[])
 		break;
 
 		case RV_MODE_FX:
+
+			rv_printf(RV_LOG_NORMAL, "Effect Color Table (change these with -c option)\n");
+			rv_printf(RV_LOG_NORMAL, "colorIdx    R      G      B  Desc\n");
+			rv_printf(RV_LOG_NORMAL, "------------------------------------------------\n");
+
+			for (i = 0; i < RV_NUM_COLORS; i++) {
+			rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
+			}
+
 			if (!rv_verbose) {
 				rv_printf(RV_LOG_NORMAL, "Detaching from terminal, running impact effect\n");
 				pid = fork();

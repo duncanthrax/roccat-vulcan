@@ -1,5 +1,11 @@
 .vscode
 src/roccat-vulcan
+*.dsc
+*.build
+*.buildinfo
+*.changes
+*.ppa.upload
+*.tar.xz
 
 # Prerequisites
 *.d
@@ -53,3 +59,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
