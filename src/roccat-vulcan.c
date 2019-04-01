@@ -43,9 +43,9 @@ rv_rgb rv_color_off = { .r = 0x0000, .g = 0x0000, .b = 0x0000 };
 
 void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "\n");
-	rv_printf(RV_LOG_NORMAL, "By default, %s forks into background and plays 'impact' effect. In this\n", arg0);
-	rv_printf(RV_LOG_NORMAL, "mode, effect colors can be changed by providing -c options and keys can be\n");
-	rv_printf(RV_LOG_NORMAL, "set to a fixed color using -k options\n");
+	rv_printf(RV_LOG_NORMAL, "By default, %s plays 'impact' effect. In this mode, effect colors can\n", arg0);
+	rv_printf(RV_LOG_NORMAL, "be changed by providing -c options and keys can be set to a fixed color\n");
+	rv_printf(RV_LOG_NORMAL, "using -k options\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
 	rv_printf(RV_LOG_NORMAL, "-c [colorIdx:r,g,b]: Change effect colors. Up to 10 colors with 'colorIdx' values\n");
 	rv_printf(RV_LOG_NORMAL, "                     in the range of 0..9 can be specified. RGB values are given as\n");
@@ -54,7 +54,7 @@ void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "-k [keyName:r,g,b] : Set the key with 'keyName' to a static color. Keynames\n");
 	rv_printf(RV_LOG_NORMAL, "                     are evdev KEY_* constants. RGB values should be in the\n");
 	rv_printf(RV_LOG_NORMAL, "                     effective range of 0..255.\n");
-	rv_printf(RV_LOG_NORMAL, "-v                 : Be verbose and don't fork, keep logging to STDOUT instead.\n");
+	rv_printf(RV_LOG_NORMAL, "-v                 : Be verbose.\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
 	rv_printf(RV_LOG_NORMAL, "-w [speed]         : Set up 'wave' effect with desired speed (1-11) and quit.\n");
 	rv_printf(RV_LOG_NORMAL, "                     This effect is run by the hardware and does not require\n");
@@ -162,29 +162,7 @@ int main(int argc, char* argv[])
 			rv_printf(RV_LOG_NORMAL, "------------------------------------------------\n");
 
 			for (i = 0; i < RV_NUM_COLORS; i++) {
-			rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
-			}
-
-			if (!rv_verbose) {
-				rv_printf(RV_LOG_NORMAL, "Detaching from terminal, running impact effect\n");
-				pid = fork();
-				if (pid < 0) exit(RV_FAILURE);
-				if (pid > 0) exit(RV_SUCCESS);
-
-				//if (setsid() < 0) exit(RV_FAILURE);
-
-				signal(SIGCHLD, SIG_IGN);
-				signal(SIGHUP, SIG_IGN);
-
-				pid = fork();
-				if (pid < 0) exit(RV_FAILURE);
-				if (pid > 0) exit(RV_SUCCESS);
-
-				chdir("/");
-
-				close(0);
-				close(1);
-				close(2);
+				rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
 			}
 
 			if (rv_open_device() < 0) {

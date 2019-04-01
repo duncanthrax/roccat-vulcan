@@ -64,8 +64,6 @@ int rv_init_evdev() {
 	char fpath[RV_MAX_STR+1];
 	char event_dev[RV_MAX_STR+1];
 
-	event_dev[0] = '\0';
-
 	memset(rv_active_keys, 0x00, RV_NUM_KEYS);
 	memset(rv_released_keys, 0xff, RV_MAX_CONCURRENT_KEYS);
 	memset(rv_pressed_keys,  0xff, RV_MAX_CONCURRENT_KEYS);
@@ -84,11 +82,30 @@ int rv_init_evdev() {
 						snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/capabilities/led", event_dev_list[i]->d_name);
 						if (cmp_file(fpath, "1f") == RV_SUCCESS) {
 							snprintf(event_dev, RV_MAX_STR, "/dev/input/%s", event_dev_list[i]->d_name);
-							break;
+
+							evdev_fd = open(event_dev, O_RDONLY|O_NONBLOCK);
+							if (evdev_fd >= 0) {
+								if (libevdev_new_from_fd(evdev_fd, &rv_evdev) < 0) {
+									close(evdev_fd);
+									rv_evdev = NULL;
+								}
+								else {
+									if (libevdev_grab(rv_evdev, LIBEVDEV_GRAB) < 0) {
+										rv_printf(RV_LOG_NORMAL, "Event input device %s is in exclusive use, skipping.\n", event_dev);
+										close(evdev_fd);
+										rv_evdev = NULL;
+									}
+									else {
+										libevdev_grab(rv_evdev, LIBEVDEV_UNGRAB);
+										break;
+									}
+								}
+							}
 						}
 					}
 				}
 			}
+			if (rv_evdev) break;
 			p++;
 		}
 	}
@@ -99,15 +116,12 @@ int rv_init_evdev() {
 
 	free(event_dev_list);
 
-	if (!event_dev[0]) {
+	if (!rv_evdev) {
 		rv_printf(RV_LOG_VERBOSE, "Error: No event input device found\n");
 		return(RV_FAILURE);
 	}
 
-	rv_printf(RV_LOG_VERBOSE, "Using event input device %s\n", event_dev);
-
-	evdev_fd = open(event_dev, O_RDONLY|O_NONBLOCK);
-	if (libevdev_new_from_fd(evdev_fd, &rv_evdev) < 0) return(RV_FAILURE);
+	rv_printf(RV_LOG_NORMAL, "Using event input device %s\n", event_dev);
 
 	return RV_SUCCESS;
 }
