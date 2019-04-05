@@ -66,3 +66,11 @@ colorIdx    R      G      B  Desc
 
 For example: To change the base keyboard color to green, specify
 `-c 0:0,120,0`.
+
+## Running as a background process (daemon)
+Use `start-stop-daemon`, like this:
+```
+start-stop-daemon -S -b -x /usr/bin/roccat-vulcan -- [options]
+```
+This will prevent from running the binary twice. You can put
+this in `/etc/rc.local` or other equivalent locations.
