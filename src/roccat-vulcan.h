@@ -44,12 +44,12 @@ rv_rgb rv_color_off;
 
 // Globals (roccat-vulcan.c)
 int rv_verbose;
-int rv_daemon;
 uint16_t rv_products[3];
 char * rv_products_str[3];
 rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
+void rv_close_devices();
 int rv_open_device();
 int rv_wait_for_ctrl_device();
 int rv_get_ctrl_report(unsigned char report_id);

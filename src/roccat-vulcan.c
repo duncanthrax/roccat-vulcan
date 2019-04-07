@@ -11,7 +11,6 @@
 uint16_t rv_products[3]   = { 0x3098, 0x307a,  0x0000 };
 char * rv_products_str[3] = { "3098", "307a",  NULL };
 int rv_verbose = 0;
-int rv_daemon  = 0;
 rv_rgb rv_colors[RV_NUM_COLORS] = {
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0077 },
 	{ .r = 0x08ff, .g = 0x0000, .b = -0x00ff },

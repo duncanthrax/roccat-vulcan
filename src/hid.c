@@ -1,6 +1,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <linux/hidraw.h>
+#include <libudev.h>
+#include <sys/ioctl.h>
+
 #include "hidapi/hidapi.h"
 
 #include "roccat-vulcan.h"
@@ -8,54 +17,137 @@
 #define RV_CTRL_INTERFACE 1
 #define RV_LED_INTERFACE  3
 
-hid_device *ctrl_handle, *led_handle;
+hid_device *led_device;
+int ctrl_device;
+
+void rv_close_ctrl_device() {
+	if (ctrl_device) close(ctrl_device);
+	ctrl_device = 0;
+}
+
+int hidraw_get_feature_report(int fd, unsigned char *buf, int size) {
+	int res = ioctl(fd, HIDIOCGFEATURE(size), buf);
+	if (res < 0) {
+		return 0;
+	}
+
+	return size;
+}
+
+int hidraw_send_feature_report(int fd, unsigned char *buf, int size) {
+	int res = ioctl(fd, HIDIOCSFEATURE(size), buf);
+	if (res < 0) {
+		return 0;
+	}
+
+	return size;
+}
 
 int rv_open_device() {
-	wchar_t wstr[RV_MAX_STR];
-	struct hid_device_info *devs, *dev, *ctrl, *led;
-	int p = 0;
 
+	// Loop through product IDs.
+	int p = 0;
 	while (rv_products[p]) {
 		unsigned short product_id = rv_products[p];
 
+		// For LED device, use hidapi-libusb, since we need to disconnect it
+		// from the default kernel driver.
+
+		struct hid_device_info *dev, *devs = NULL;
+		led_device = NULL;
 		devs = hid_enumerate(RV_VENDOR, product_id);
 		dev = devs;
-		ctrl = NULL;
-		led = NULL;
 		while (dev) {
-			if (dev->interface_number == RV_CTRL_INTERFACE) ctrl = dev;
-			if (dev->interface_number == RV_LED_INTERFACE)   led = dev;
+			if (dev->interface_number == RV_LED_INTERFACE) {
+				rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): LED interface at USB path %s\n", RV_VENDOR, product_id, dev->path);
+				led_device = hid_open_path(dev->path);
+				if (!led_device) {
+					rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open LED interface %s\n", RV_VENDOR, product_id, dev->path);
+					goto NEXT_PRODUCT;
+				}
+				if (hid_set_nonblocking(led_device, 1) < 0) {
+					rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to set LED interface %s to non-blocking mode\n", RV_VENDOR, product_id, dev->path);
+					goto NEXT_PRODUCT;
+				};
+			}
+			else {
+				rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): ignoring non-LED interface #%d\n", RV_VENDOR, product_id, dev->interface_number);
+			}
 			dev = dev->next;
 		}
 
-		if (!ctrl || !led) {
-			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No matching device found\n", RV_VENDOR, product_id);
+		if (!led_device) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No LED device found\n", RV_VENDOR, product_id);
 			goto NEXT_PRODUCT;
 		}
 
-		ctrl_handle = hid_open_path(ctrl->path);
-		led_handle  = hid_open_path(led->path);
+		if (devs) { hid_free_enumeration(devs); devs = NULL; };
 
-		if (!ctrl_handle || !led_handle) {
-			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open HID devices %s and/or %s\n", RV_VENDOR, product_id, ctrl->path, led->path);
+		// For CTRL device, use native HIDRAW access. After sending the init
+		// sequence, we will close it.
+
+		struct udev *udev = udev_new();
+		struct udev_enumerate *enumerate = udev_enumerate_new(udev);
+		udev_enumerate_add_match_subsystem(enumerate, "hidraw");
+		udev_enumerate_scan_devices(enumerate);
+
+		struct udev_list_entry *entries = udev_enumerate_get_list_entry(enumerate);
+		struct udev_list_entry *cur;
+		udev_list_entry_foreach(cur, entries) {
+			struct udev_device *usb_dev = NULL;
+			struct udev_device *raw_dev = NULL;
+			const char *sysfs_path = udev_list_entry_get_name(cur);
+			if (!sysfs_path) goto NEXT_ENTRY;
+
+			raw_dev = udev_device_new_from_syspath(udev, sysfs_path);
+			const char *dev_path = udev_device_get_devnode(raw_dev);
+			if (!dev_path) goto NEXT_ENTRY;
+
+			usb_dev = udev_device_get_parent_with_subsystem_devtype(
+				raw_dev,
+				"usb",
+				"usb_interface");
+			if (!usb_dev) goto NEXT_ENTRY;
+
+			const char *info = udev_device_get_sysattr_value(usb_dev, "uevent");
+			if (!info) goto NEXT_ENTRY;
+
+			const char *itf = udev_device_get_sysattr_value(usb_dev, "bInterfaceNumber");
+			if (!itf) goto NEXT_ENTRY;
+
+			// We're looking for vid/pid and interface number
+			if (atoi(itf) == RV_CTRL_INTERFACE) {
+				char searchstr[64];
+				snprintf(searchstr, 64, "PRODUCT=%hx/%hx", RV_VENDOR, product_id);
+
+				if (strstr(info, searchstr) != NULL) {
+					ctrl_device = open(dev_path, O_RDWR|O_NONBLOCK);
+					if (!ctrl_device) {
+						rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open CTRL device at %s\n", RV_VENDOR, product_id, dev_path);
+						goto NEXT_ENTRY;
+					}
+					rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): CTRL interface at %s\n", RV_VENDOR, product_id, dev_path);
+					break;
+				}
+			}
+
+			NEXT_ENTRY:
+			if (raw_dev) udev_device_unref(raw_dev);
+		}
+
+		if (!ctrl_device) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No CTRL device found\n", RV_VENDOR, product_id);
 			goto NEXT_PRODUCT;
 		}
 
-		if (hid_get_product_string(ctrl_handle, wstr, RV_MAX_STR) < 0) {
-			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to get product string.\n", RV_VENDOR, product_id);
-			goto NEXT_PRODUCT;
-		};
-
-		rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): %ls, devices %s and %s\n", RV_VENDOR, product_id, wstr, ctrl->path, led->path);
-		hid_free_enumeration(devs);
 		return 0;
 
 		NEXT_PRODUCT:
-		hid_free_enumeration(devs); devs = NULL;
+		if (devs) { hid_free_enumeration(devs); devs = NULL; };
+		if (led_device) hid_close(led_device);
 		p++;
 	}
 
-	if (devs) hid_free_enumeration(devs);
 	return -1;
 }
 
@@ -67,7 +159,7 @@ int rv_wait_for_ctrl_device() {
 		// 150ms is the magic number here, should suffice on first try.
 		usleep(150000);
 
-		res = hid_get_feature_report(ctrl_handle, buffer, sizeof(buffer));
+		res = hidraw_get_feature_report(ctrl_device, buffer, sizeof(buffer));
 		if (res) {
 			rv_printf(RV_LOG_VERBOSE, "rv_wait_for_ctrl_device(): ");
 			rv_print_buffer(buffer, res);
@@ -105,7 +197,7 @@ int rv_get_ctrl_report(unsigned char report_id) {
 	}
 
 	buffer[0] = report_id;
-	res = hid_get_feature_report(ctrl_handle, buffer, length);
+	res = hidraw_get_feature_report(ctrl_device, buffer, length);
 	if (res) {
 		rv_printf(RV_LOG_VERBOSE, "rv_get_ctrl_report(%02hhx): ", report_id);
 		rv_print_buffer(buffer, res);
@@ -263,7 +355,7 @@ int rv_set_ctrl_report(unsigned char report_id, int mode, int byteopt) {
 		exit(RV_FAILURE);
 	}
 
-	res = hid_send_feature_report(ctrl_handle, buffer, length);
+	res = hidraw_send_feature_report(ctrl_device, buffer, length);
 	if (malloced) free(buffer);
 	if (res == length) {
 		rv_printf(RV_LOG_VERBOSE, "rv_set_ctrl_report(%02hhx): %u bytes sent\n", report_id, res);
@@ -305,24 +397,27 @@ int rv_send_led_map(rv_rgb_map *src) {
 	workbuf[3] = 0x01;
 	workbuf[4] = 0xb4;
 	memcpy(&workbuf[5], hwmap, 60);
-	if (hid_write(led_handle, workbuf, 65) != 65) {
+	if (hid_write(led_device, workbuf, 65) != 65) {
 		return RV_FAILURE;
 	}
+
+	//usleep(5000);
 
 	// Six more chunks
 	for (i = 1; i < 7; i++) {
 		workbuf[0] = 0x00;
 		memcpy(&workbuf[1], &hwmap[(i * 64) - 4], 64);
-		if (hid_write(led_handle, workbuf, 65) != 65) {
+		if (hid_write(led_device, workbuf, 65) != 65) {
 			return RV_FAILURE;
 		}
+		//usleep(5000);
 	}
 
 	return RV_SUCCESS;
 }
 
 int rv_send_init(int type, int opt) {
-	return (
+	int rc =
 		rv_get_ctrl_report(0x0f)             ||
 		rv_set_ctrl_report(0x15, type, opt)  ||
 		rv_wait_for_ctrl_device()            ||
@@ -341,6 +436,9 @@ int rv_send_init(int type, int opt) {
 		rv_set_ctrl_report(0x0d, type, opt)  ||
 		rv_wait_for_ctrl_device()            ||
 		rv_set_ctrl_report(0x13, type, opt)  ||
-		rv_wait_for_ctrl_device()
-	);
+		rv_wait_for_ctrl_device();
+
+		rv_close_ctrl_device();
+
+		return rc;
 }

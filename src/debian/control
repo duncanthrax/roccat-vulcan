@@ -2,7 +2,7 @@ Source: roccat-vulcan
 Section: utils
 Priority: optional
 Maintainer: Tom Kistner <tom@kistner.nu>
-Build-Depends: libevdev-dev, libhidapi-dev, debhelper
+Build-Depends: libevdev-dev, libhidapi-dev, debhelper, libudev-dev
 Standards-Version: 4.1.3
 Homepage: https://github.com/duncanthrax/roccat-vulcan
 Vcs-Browser: https://github.com/duncanthrax/roccat-vulcan
@@ -10,7 +10,7 @@ Vcs-Git: https://github.com/duncanthrax/roccat-vulcan.git
 
 Package: roccat-vulcan
 Architecture: any
-Depends: libevdev2, libhidapi-libusb0, ${shlibs:Depends}, ${misc:Depends}
+Depends: libudev1, libevdev2, libhidapi-libusb0, ${shlibs:Depends}, ${misc:Depends}
 Description: Linux RGB LED effect support for the Roccat Vulcan 100/120 Keyboard
  This little binary adds some bling to your Roccat Vulcan 100/120 Keyboard
  when you use it in Linux. It supports setting up the default "Wave" effect

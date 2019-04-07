@@ -5,7 +5,7 @@ NAME    := roccat-vulcan
 BINDIR  := /usr/bin
 UDEVDIR := /etc/udev/rules.d
 CFLAGS   = -I/usr/include/libevdev-1.0
-LDFLAGS  = -lhidapi-libusb -levdev
+LDFLAGS  = -levdev -lhidapi-libusb -ludev
 
 .PHONY: all
 all: $(NAME)
