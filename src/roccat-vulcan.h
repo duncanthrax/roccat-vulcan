@@ -19,11 +19,11 @@
 #define RV_MODE_NONE 0
 #define RV_MODE_WAVE 1
 #define RV_MODE_FX   2
+#define RV_MODE_TOPO 3
 
 #define RV_LOG_NORMAL  0
 #define RV_LOG_VERBOSE 1
 
-#define RV_MAX_NEIGH 10
 #define RV_MAX_EV_CODE 254
 
 #define RV_MAX_CONCURRENT_KEYS 10
@@ -49,7 +49,6 @@ char * rv_products_str[3];
 rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
-void rv_close_devices();
 int rv_open_device();
 int rv_wait_for_ctrl_device();
 int rv_get_ctrl_report(unsigned char report_id);
@@ -62,7 +61,7 @@ void rv_print_buffer(unsigned char *buffer, int len);
 void rv_printf(int verbose, const char *format, ...);
 
 // Evdev
-int rv_init_evdev();
+int rv_init_evdev(int);
 int rv_update_evdev();
 int rv_get_keycode();
 unsigned char rv_active_keys[RV_NUM_KEYS];
@@ -71,7 +70,9 @@ unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
 unsigned char rv_repeated_keys[RV_MAX_CONCURRENT_KEYS];
 
 // FX functions (fx.c)
-int rv_fx_init();
-int rv_fx_impact();
+int  rv_fx_init();
+void rv_fx_impact();
+void rv_fx_topo_rows();
+void rv_fx_topo_cols();
 
 #endif

@@ -71,12 +71,13 @@ int main(int argc, char* argv[])
 	int rgb_idx = 0;
 	rv_rgb rgb;
 	char *keyname;
+	void (*topo_func)();
 
 	memset(rv_fixed, 0, sizeof(rv_fixed));
 
 	rv_printf(RV_LOG_NORMAL, "ROCCAT Vulcan for Linux [github.com/duncanthrax/roccat-vulcan]\n");
 
-	while ((opt = getopt(argc, argv, "hvw:c:k:")) != -1) {
+	while ((opt = getopt(argc, argv, "hvw:c:k:t:")) != -1) {
 		switch (opt) {
 			case 'h':
 				show_usage(argv[0]);
@@ -128,6 +129,19 @@ int main(int argc, char* argv[])
 				}
 				else speed = 6;
 			break;
+			case 't':
+				mode  = RV_MODE_TOPO;
+				if (strcmp(optarg,"rows") == 0) {
+					topo_func = &rv_fx_topo_rows;
+				}
+				else if (strcmp(optarg,"cols") == 0) {
+					topo_func = &rv_fx_topo_cols;
+				}
+				else {
+					rv_printf(RV_LOG_NORMAL, "Error: Unknown topology recording function '%s'\n", optarg);
+					return -1;
+				};
+			break;
 			case 'v':
 				rv_verbose = 1;
 			break;
@@ -141,6 +155,26 @@ int main(int argc, char* argv[])
 	}
 
 	switch (mode) {
+		case RV_MODE_TOPO:
+			if (rv_open_device() < 0) {
+				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+				return RV_FAILURE;
+			}
+
+			if (rv_send_init(RV_MODE_FX, -1)) {
+				rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
+				return RV_FAILURE;
+			}
+
+			if (rv_fx_init() != 0) {
+				rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
+				return RV_FAILURE;
+			};
+
+			(*topo_func)();
+
+		break;
+
 		case RV_MODE_WAVE:
 			if (rv_open_device() < 0) {
 				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
@@ -179,7 +213,7 @@ int main(int argc, char* argv[])
 				return RV_FAILURE;
 			};
 
-			return rv_fx_impact();
+			rv_fx_impact();
 		break;
 
 		default:

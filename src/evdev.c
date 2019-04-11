@@ -58,7 +58,7 @@ int prefix_filter(const struct dirent *entry) {
 	return 0;
 }
 
-int rv_init_evdev() {
+int rv_init_evdev(int grab) {
 	struct dirent **event_dev_list;
 	int evdev_fd, num_devs, i;
 	char fpath[RV_MAX_STR+1];
@@ -96,7 +96,7 @@ int rv_init_evdev() {
 										rv_evdev = NULL;
 									}
 									else {
-										libevdev_grab(rv_evdev, LIBEVDEV_UNGRAB);
+										if (!grab) libevdev_grab(rv_evdev, LIBEVDEV_UNGRAB);
 										break;
 									}
 								}
