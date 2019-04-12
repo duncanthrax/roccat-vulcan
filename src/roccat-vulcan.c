@@ -36,6 +36,8 @@ char * rv_colors_desc[RV_NUM_COLORS] = {
 	NULL
 };
 
+int rv_topo_model = RV_TOPO_ISO;
+
 rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 rv_rgb rv_color_off = { .r = 0x0000, .g = 0x0000, .b = 0x0000 };
@@ -46,6 +48,8 @@ void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "be changed by providing -c options and keys can be set to a fixed color\n");
 	rv_printf(RV_LOG_NORMAL, "using -k options\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
+	rv_printf(RV_LOG_NORMAL, "-b [hwmodel]       : Specify keyboard key layout. Supported hwmodels are 'iso'\n");
+	rv_printf(RV_LOG_NORMAL, "                     and 'ansi'. Default is 'iso'.\n");
 	rv_printf(RV_LOG_NORMAL, "-c [colorIdx:r,g,b]: Change effect colors. Up to 10 colors with 'colorIdx' values\n");
 	rv_printf(RV_LOG_NORMAL, "                     in the range of 0..9 can be specified. RGB values are given as\n");
 	rv_printf(RV_LOG_NORMAL, "                     signed integers (−32768..32767), with effective values\n");
@@ -73,11 +77,13 @@ int main(int argc, char* argv[])
 	char *keyname;
 	void (*topo_func)();
 
+	setvbuf(stdout, NULL, _IONBF, 0);
+
 	memset(rv_fixed, 0, sizeof(rv_fixed));
 
 	rv_printf(RV_LOG_NORMAL, "ROCCAT Vulcan for Linux [github.com/duncanthrax/roccat-vulcan]\n");
 
-	while ((opt = getopt(argc, argv, "hvw:c:k:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "hvw:c:k:b:t:")) != -1) {
 		switch (opt) {
 			case 'h':
 				show_usage(argv[0]);
@@ -129,6 +135,18 @@ int main(int argc, char* argv[])
 				}
 				else speed = 6;
 			break;
+			case 'b':
+				if (strcmp(optarg,"ansi") == 0) {
+					rv_topo_model = RV_TOPO_ANSI;
+				}
+				else if (strcmp(optarg,"iso") == 0) {
+					rv_topo_model = RV_TOPO_ISO;
+				}
+				else {
+					rv_printf(RV_LOG_NORMAL, "Error: Unknown topology hwmodel '%s'\n", optarg);
+					return -1;
+				};
+			break;
 			case 't':
 				mode  = RV_MODE_TOPO;
 				if (strcmp(optarg,"rows") == 0) {
@@ -136,6 +154,12 @@ int main(int argc, char* argv[])
 				}
 				else if (strcmp(optarg,"cols") == 0) {
 					topo_func = &rv_fx_topo_cols;
+				}
+				else if (strcmp(optarg,"keys") == 0) {
+					topo_func = &rv_fx_topo_keys;
+				}
+				else if (strcmp(optarg,"neigh") == 0) {
+					topo_func = &rv_fx_topo_neigh;
 				}
 				else {
 					rv_printf(RV_LOG_NORMAL, "Error: Unknown topology recording function '%s'\n", optarg);

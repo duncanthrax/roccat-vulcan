@@ -28,6 +28,15 @@
 
 #define RV_MAX_CONCURRENT_KEYS 10
 
+
+// These ones we know about. There might be more.
+#define RV_NUM_TOPO_MODELS 2
+enum rv_topo_models {
+    RV_TOPO_ISO,
+    RV_TOPO_ANSI
+};
+int rv_topo_model;
+
 typedef struct rv_rgb_type {
     int16_t r;
     int16_t g;
@@ -64,6 +73,8 @@ void rv_printf(int verbose, const char *format, ...);
 int rv_init_evdev(int);
 int rv_update_evdev();
 int rv_get_keycode();
+int rv_get_evdev_keypress();
+const char *rv_get_ev_keyname();
 unsigned char rv_active_keys[RV_NUM_KEYS];
 unsigned char rv_released_keys[RV_MAX_CONCURRENT_KEYS];
 unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
@@ -74,5 +85,7 @@ int  rv_fx_init();
 void rv_fx_impact();
 void rv_fx_topo_rows();
 void rv_fx_topo_cols();
+void rv_fx_topo_keys();
+void rv_fx_topo_neigh();
 
 #endif

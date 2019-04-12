@@ -401,8 +401,6 @@ int rv_send_led_map(rv_rgb_map *src) {
 		return RV_FAILURE;
 	}
 
-	//usleep(5000);
-
 	// Six more chunks
 	for (i = 1; i < 7; i++) {
 		workbuf[0] = 0x00;
@@ -410,7 +408,6 @@ int rv_send_led_map(rv_rgb_map *src) {
 		if (hid_write(led_device, workbuf, 65) != 65) {
 			return RV_FAILURE;
 		}
-		//usleep(5000);
 	}
 
 	return RV_SUCCESS;
