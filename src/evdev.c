@@ -19,7 +19,7 @@ unsigned char rv_released_keys[RV_MAX_CONCURRENT_KEYS];
 unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
 unsigned char rv_repeated_keys[RV_MAX_CONCURRENT_KEYS];
 
-// Event key code to Vulcan key number (max code 254)
+// Event key code (max 254) to Vulcan key number (max 144) .
 // 0xff = Not an event code that maps to a Vulcan key.
 unsigned char rv_ev2rv[RV_NUM_TOPO_MODELS][RV_MAX_EV_CODE+1] = {
 
