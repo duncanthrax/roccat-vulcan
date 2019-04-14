@@ -24,7 +24,7 @@
 #define RV_LOG_NORMAL  0
 #define RV_LOG_VERBOSE 1
 
-#define RV_MAX_EV_CODE 254
+#define RV_MAX_EV_CODE 0x2ff
 
 #define RV_MAX_CONCURRENT_KEYS 10
 
