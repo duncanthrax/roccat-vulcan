@@ -12,7 +12,7 @@
 
 #include "roccat-vulcan.h"
 
-#define RV_MAX_EVDEV_DEVICES 4
+#define RV_MAX_EVDEV_DEVICES 6
 struct libevdev *rv_evdev[RV_MAX_EVDEV_DEVICES+1];
 
 unsigned char rv_active_keys[RV_NUM_KEYS];
