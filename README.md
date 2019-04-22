@@ -20,7 +20,7 @@ roccat-vulcan
 
 ### Manual build (Expert zone)
 
-* You need to install development packages for libevdev and libhidapi.
+* You need to install development packages for libevdev, libhidapi, and libudev.
 * Type 'make && make install' in /src. 
 * Replug keyboard or reboot unless you want to run as root.
 * Run `roccat-vulcan`.
