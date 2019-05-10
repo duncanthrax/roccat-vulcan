@@ -457,7 +457,9 @@ void rv_fx_impact() {
 			rv_printf(RV_LOG_NORMAL, "Error: Unable to allocate memory for wheel\n");
 			return;
 		}
-		memset(wheel[wheel_pos], 0, sizeof(rv_rgb_map));
+		for (k = 0; k < RV_NUM_KEYS; k++) {
+			wheel[wheel_pos]->key[k] = rv_colors[0];
+		}
 		wheel_pos++;
 	}
 
@@ -495,7 +497,7 @@ void rv_fx_impact() {
 
 		rv_blend_to(wheel[wheel_pos], wheel[rv_wheel_offset(wheel_pos, 1)], rv_colors[0], 16);
 
-		for (k = 0; k < RV_NUM_KEYS; k++) { wheel[wheel_pos]->key[k] = rv_color_off; };
+		for (k = 0; k < RV_NUM_KEYS; k++) { wheel[wheel_pos]->key[k] = rv_colors[0]; };
 
 		NEXT:
 		wheel_pos++;
