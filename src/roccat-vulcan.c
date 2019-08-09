@@ -7,6 +7,9 @@
 
 #include "roccat-vulcan.h"
 
+#define FX_MODE_IMPACT 0
+#define FX_MODE_PIPED 1
+
 // Globals
 uint16_t rv_products[3]   = { 0x3098, 0x307a,  0x0000 };
 char * rv_products_str[3] = { "3098", "307a",  NULL };
@@ -59,6 +62,12 @@ void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "                     effective range of 0..255.\n");
 	rv_printf(RV_LOG_NORMAL, "-v                 : Be verbose.\n");
 	rv_printf(RV_LOG_NORMAL, "\n");
+	rv_printf(RV_LOG_NORMAL, "-p [pipePath]      : Read commands from a named pipe. To set a key to a static color,\n");
+	rv_printf(RV_LOG_NORMAL, "                     write rgb:keyName:r,g,b to the pipe. Keynames are evdev KEY_*\n");
+	rv_printf(RV_LOG_NORMAL, "                     constants or alternatively 'all' to modify all keys.\n");
+	rv_printf(RV_LOG_NORMAL, "                     RGB values should be in the effective range of 0..255.\n");
+	rv_printf(RV_LOG_NORMAL, "                     Other command line options do not apply.\n");
+	rv_printf(RV_LOG_NORMAL, "\n");
 	rv_printf(RV_LOG_NORMAL, "-w [speed]         : Set up 'wave' effect with desired speed (1-11) and quit.\n");
 	rv_printf(RV_LOG_NORMAL, "                     This effect is run by the hardware and does not require\n");
 	rv_printf(RV_LOG_NORMAL, "                     host support. Other command line options do not apply.\n");
@@ -76,6 +85,8 @@ int main(int argc, char* argv[])
 	rv_rgb rgb;
 	char *keyname;
 	void (*topo_func)();
+	int fx_mode = FX_MODE_IMPACT;
+	char *file_name;
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -83,7 +94,7 @@ int main(int argc, char* argv[])
 
 	rv_printf(RV_LOG_NORMAL, "ROCCAT Vulcan for Linux [github.com/duncanthrax/roccat-vulcan]\n");
 
-	while ((opt = getopt(argc, argv, "hvw:c:k:b:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "hvw:p:c:k:b:t:")) != -1) {
 		switch (opt) {
 			case 'h':
 				show_usage(argv[0]);
@@ -169,6 +180,10 @@ int main(int argc, char* argv[])
 			case 'v':
 				rv_verbose = 1;
 			break;
+			case 'p':
+				fx_mode = FX_MODE_PIPED;
+				file_name = optarg;
+			break;
 			default:
 				show_usage(argv[0]);
 		}
@@ -214,30 +229,54 @@ int main(int argc, char* argv[])
 
 		case RV_MODE_FX:
 
-			rv_printf(RV_LOG_NORMAL, "Effect Color Table (change these with -c option)\n");
-			rv_printf(RV_LOG_NORMAL, "colorIdx    R      G      B  Desc\n");
-			rv_printf(RV_LOG_NORMAL, "------------------------------------------------\n");
+			if (fx_mode == FX_MODE_PIPED) {
+				rv_printf(RV_LOG_NORMAL, "Reading commands pipe '%s'\n", file_name);
+				rv_printf(RV_LOG_NORMAL, "Command format: keyName:r,g,b\n");
+				rv_printf(RV_LOG_NORMAL, "Keynames are evdev KEY_* constants, or 'all'.\n");
+				rv_printf(RV_LOG_NORMAL, "RGB values should be in the effective range of 0..255.\n");
+				if (rv_open_device() < 0) {
+					rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+					return RV_FAILURE;
+				}
 
-			for (i = 0; i < RV_NUM_COLORS; i++) {
-				rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
+				if (rv_send_init(RV_MODE_FX, -1)) {
+					rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
+					return RV_FAILURE;
+				}
+
+				if (rv_fx_init() != 0) {
+					rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
+					return RV_FAILURE;
+				};
+
+				rv_fx_piped(file_name);
 			}
+			else {
+				rv_printf(RV_LOG_NORMAL, "Effect Color Table (change these with -c option)\n");
+				rv_printf(RV_LOG_NORMAL, "colorIdx    R      G      B  Desc\n");
+				rv_printf(RV_LOG_NORMAL, "------------------------------------------------\n");
 
-			if (rv_open_device() < 0) {
-				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
-				return RV_FAILURE;
+				for (i = 0; i < RV_NUM_COLORS; i++) {
+					rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
+				}
+
+				if (rv_open_device() < 0) {
+					rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+					return RV_FAILURE;
+				}
+
+				if (rv_send_init(RV_MODE_FX, -1)) {
+					rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
+					return RV_FAILURE;
+				}
+
+				if (rv_fx_init() != 0) {
+					rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
+					return RV_FAILURE;
+				};
+
+				rv_fx_impact();
 			}
-
-			if (rv_send_init(RV_MODE_FX, -1)) {
-				rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
-				return RV_FAILURE;
-			}
-
-			if (rv_fx_init() != 0) {
-				rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
-				return RV_FAILURE;
-			};
-
-			rv_fx_impact();
 		break;
 
 		default:

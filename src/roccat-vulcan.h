@@ -87,5 +87,6 @@ void rv_fx_topo_rows();
 void rv_fx_topo_cols();
 void rv_fx_topo_keys();
 void rv_fx_topo_neigh();
+void rv_fx_piped(char *pipe_name);
 
 #endif
