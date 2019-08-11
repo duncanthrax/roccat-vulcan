@@ -1,5 +1,5 @@
-roccat-vulcan (1.0.9-1~bionic) bionic; urgency=medium
+roccat-vulcan (1.1.2-1~bionic) bionic; urgency=medium
 
-  * Update to 1.0.9-1
+  * Update to 1.1.2-1
 
- -- Tom Kistner <tom@kistner.nu>  Sun, 14 Apr 2019 16:42:49 +0200
+ -- Tom Kistner <tom@kistner.nu>  Fri, 10 May 2019 16:42:16 +0200
