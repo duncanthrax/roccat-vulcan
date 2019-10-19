@@ -5,7 +5,7 @@ cd $(dirname $(realpath $0))/../src
 DATE=$(date -R)
 VERSION="1.1.3-1"
 
-for RELEASE in disco cosmic bionic
+for RELEASE in eoan disco cosmic bionic
 do
 
 cat >debian/changelog <<END
