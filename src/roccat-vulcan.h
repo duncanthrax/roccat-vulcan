@@ -35,7 +35,7 @@ enum rv_topo_models {
     RV_TOPO_ISO,
     RV_TOPO_ANSI
 };
-int rv_topo_model;
+extern int rv_topo_model;
 
 typedef struct rv_rgb_type {
     int16_t r;
@@ -48,14 +48,14 @@ typedef struct rv_rgb_map_type {
 } rv_rgb_map;
 
 #define RV_NUM_COLORS 10
-rv_rgb rv_colors[RV_NUM_COLORS];
-rv_rgb rv_color_off;
+extern rv_rgb rv_colors[RV_NUM_COLORS];
+extern rv_rgb rv_color_off;
 
 // Globals (roccat-vulcan.c)
-int rv_verbose;
-uint16_t rv_products[3];
-char * rv_products_str[3];
-rv_rgb* rv_fixed[RV_NUM_KEYS];
+extern int rv_verbose;
+extern uint16_t rv_products[3];
+extern char * rv_products_str[3];
+extern rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
 int rv_open_device();
@@ -75,10 +75,10 @@ int rv_update_evdev();
 int rv_get_keycode();
 int rv_get_evdev_keypress();
 const char *rv_get_ev_keyname();
-unsigned char rv_active_keys[RV_NUM_KEYS];
-unsigned char rv_released_keys[RV_MAX_CONCURRENT_KEYS];
-unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
-unsigned char rv_repeated_keys[RV_MAX_CONCURRENT_KEYS];
+extern unsigned char rv_active_keys[RV_NUM_KEYS];
+extern unsigned char rv_released_keys[RV_MAX_CONCURRENT_KEYS];
+extern unsigned char rv_pressed_keys[RV_MAX_CONCURRENT_KEYS];
+extern unsigned char rv_repeated_keys[RV_MAX_CONCURRENT_KEYS];
 
 // FX functions (fx.c)
 int  rv_fx_init();
