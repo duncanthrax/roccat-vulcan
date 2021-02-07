@@ -154,8 +154,9 @@ int rv_open_device() {
 int rv_wait_for_ctrl_device() {
 	unsigned char buffer[] = { 0x04, 0x00, 0x00, 0x00 };
 	int res;
+	int attempts = 0;
 
-	while (1) {
+	while (attempts++ < 2) {
 		// 150ms is the magic number here, should suffice on first try.
 		usleep(150000);
 
@@ -163,15 +164,15 @@ int rv_wait_for_ctrl_device() {
 		if (res) {
 			rv_printf(RV_LOG_VERBOSE, "rv_wait_for_ctrl_device(): ");
 			rv_print_buffer(buffer, res);
-			if (buffer[1] == 0x01) break;
+			if (buffer[1] == 0x01) return 0;
 		}
 		else {
 			rv_printf(RV_LOG_VERBOSE, "rv_wait_for_ctrl_device() failed\n");
-			return RV_FAILURE;
+			break;
 		}
 	}
 
-	return 0;
+	return RV_FAILURE;
 }
 
 int rv_get_ctrl_report(unsigned char report_id) {
