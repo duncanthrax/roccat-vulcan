@@ -1,5 +1,5 @@
-roccat-vulcan (1.1.5-1~groovy) groovy; urgency=medium
+roccat-vulcan (1.1.5-2~hirsute) hirsute; urgency=medium
 
-  * Update to 1.1.5-1
+  * Update to 1.1.5-2
 
- -- Tom Kistner <tom@kistner.nu>  Mon, 08 Feb 2021 17:40:57 +0100
+ -- Tom Kistner <tom@kistner.nu>  Fri, 18 Jun 2021 09:08:57 +0200
