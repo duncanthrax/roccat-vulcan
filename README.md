@@ -20,24 +20,35 @@ roccat-vulcan
 
 ### Manual build (Expert zone)
 
-* You need to install development packages for libevdev, libhidapi, and libudev.
-* Type 'make && make install' in /src. 
+* You need to install development packages for `libevdev`, `libhidapi`, and `libudev`:
+
+```bash
+# Ubuntu
+sudo apt install libevdev libhidapi libudev
+
+# Fedora
+sudo dnf install libevdev libevdev-devel systemd-devel libgudev1-devel libgudev1 hidapi hidapi-devel
+```
+
+* Type `make && make install` in `/src`.
 * Replug keyboard or reboot unless you want to run as root.
 * Run `roccat-vulcan`.
 
-
 ## If it does not work ...
+
 * When not running as root, you need to be a member of
   the `plugdev` group (check with `id`), and udev must have
   set up the device nodes accordingly.
 * Check the vendor/device ID of your keyboard with `lsusb`.
   The entry should look like this:
+
   ```
   Bus 001 Device 035: ID 1e7d:307a ROCCAT
   ```
+
   If your IDs aren't `1e7d:307a` or `1e7d:3098`, add an issue
   about it.
-  
+
 ## Changing effect colors
 Effects use up to 10 colors which can be changed by specifying
 the `-c` command line option. Colors are specified as RGB values
@@ -68,9 +79,12 @@ For example: To change the base keyboard color to green, specify
 `-c 0:0,120,0`.
 
 ## Running as a background process (daemon)
+
 Use `start-stop-daemon`, like this:
-```
+
+```bash
 start-stop-daemon -S -b -x /usr/bin/roccat-vulcan -- [options]
 ```
+
 This will prevent from running the binary twice. You can put
 this in `/etc/rc.local` or other equivalent locations.
