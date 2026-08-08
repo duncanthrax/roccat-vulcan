@@ -45,6 +45,53 @@ rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 rv_rgb rv_color_off = { .r = 0x0000, .g = 0x0000, .b = 0x0000 };
 
+static int rv_prepare_runtime(int effect_mode, int speed, const char *mode_name) {
+	if (rv_open_device() < 0) {
+		rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard for %s mode\n", mode_name);
+		return RV_FAILURE;
+	}
+
+	if (rv_send_init(effect_mode, speed)) {
+		rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence for %s mode.\n", mode_name);
+		return RV_FAILURE;
+	}
+
+	if (rv_fx_init() != 0) {
+		rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs for %s mode.\n", mode_name);
+		return RV_FAILURE;
+	}
+
+	return RV_SUCCESS;
+}
+
+static int rv_parse_color_option(const char *optarg, int *rgb_idx, rv_rgb *rgb) {
+	return sscanf(optarg, "%d:%hd,%hd,%hd", rgb_idx, &(rgb->r), &(rgb->g), &(rgb->b)) == 4;
+}
+
+static int rv_parse_key_option(const char *optarg, char **keyname, rv_rgb *rgb) {
+	return sscanf(optarg, "%m[^:]:%hd,%hd,%hd", keyname, &(rgb->r), &(rgb->g), &(rgb->b)) == 4;
+}
+
+static int rv_parse_topology_option(const char *optarg, void (**topo_func)(void)) {
+	if (strcmp(optarg, "rows") == 0) {
+		*topo_func = &rv_fx_topo_rows;
+		return RV_SUCCESS;
+	}
+	if (strcmp(optarg, "cols") == 0) {
+		*topo_func = &rv_fx_topo_cols;
+		return RV_SUCCESS;
+	}
+	if (strcmp(optarg, "keys") == 0) {
+		*topo_func = &rv_fx_topo_keys;
+		return RV_SUCCESS;
+	}
+	if (strcmp(optarg, "neigh") == 0) {
+		*topo_func = &rv_fx_topo_neigh;
+		return RV_SUCCESS;
+	}
+	return RV_FAILURE;
+}
+
 void show_usage(const char *arg0) {
 	rv_printf(RV_LOG_NORMAL, "\n");
 	rv_printf(RV_LOG_NORMAL, "By default, %s plays 'impact' effect. In this mode, effect colors can\n", arg0);
@@ -83,10 +130,10 @@ int main(int argc, char* argv[])
 	int speed = 6;
 	int rgb_idx = 0;
 	rv_rgb rgb;
-	char *keyname;
-	void (*topo_func)();
+	char *keyname = NULL;
+	void (*topo_func)(void) = NULL;
 	int fx_mode = FX_MODE_IMPACT;
-	char *file_name;
+	const char *file_name = NULL;
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -100,7 +147,7 @@ int main(int argc, char* argv[])
 				show_usage(argv[0]);
 			break;
 			case 'c':
-				if (sscanf(optarg, "%d:%hd,%hd,%hd", &rgb_idx, &(rgb.r), &(rgb.g), &(rgb.b)) == 4) {
+				if (rv_parse_color_option(optarg, &rgb_idx, &rgb)) {
 					if (rgb_idx >= 0 && rgb_idx < 10) {
 						rv_printf(RV_LOG_NORMAL, "Color %u set to %hd,%hd,%hd\n", rgb_idx, rgb.r, rgb.g, rgb.b);
 						rv_colors[rgb_idx] = rgb;
@@ -116,7 +163,7 @@ int main(int argc, char* argv[])
 				}
 			break;
 			case 'k':
-				if (sscanf(optarg, "%m[^:]:%hd,%hd,%hd", &keyname, &(rgb.r), &(rgb.g), &(rgb.b)) == 4) {
+				if (rv_parse_key_option(optarg, &keyname, &rgb)) {
 					int k = rv_get_keycode(keyname);
 					if (k >= 0) {
 						rv_fixed[k] = malloc(sizeof(rv_rgb));
@@ -160,22 +207,10 @@ int main(int argc, char* argv[])
 			break;
 			case 't':
 				mode  = RV_MODE_TOPO;
-				if (strcmp(optarg,"rows") == 0) {
-					topo_func = &rv_fx_topo_rows;
-				}
-				else if (strcmp(optarg,"cols") == 0) {
-					topo_func = &rv_fx_topo_cols;
-				}
-				else if (strcmp(optarg,"keys") == 0) {
-					topo_func = &rv_fx_topo_keys;
-				}
-				else if (strcmp(optarg,"neigh") == 0) {
-					topo_func = &rv_fx_topo_neigh;
-				}
-				else {
+				if (rv_parse_topology_option(optarg, &topo_func) != RV_SUCCESS) {
 					rv_printf(RV_LOG_NORMAL, "Error: Unknown topology recording function '%s'\n", optarg);
 					return -1;
-				};
+				}
 			break;
 			case 'v':
 				rv_verbose = 1;
@@ -201,32 +236,16 @@ int main(int argc, char* argv[])
 
 	switch (mode) {
 		case RV_MODE_TOPO:
-			if (rv_open_device() < 0) {
-				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+			if (rv_prepare_runtime(RV_MODE_FX, -1, "topology") != RV_SUCCESS) {
 				return RV_FAILURE;
 			}
-
-			if (rv_send_init(RV_MODE_FX, -1)) {
-				rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
-				return RV_FAILURE;
-			}
-
-			if (rv_fx_init() != 0) {
-				rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
-				return RV_FAILURE;
-			};
 
 			(*topo_func)();
 
 		break;
 
 		case RV_MODE_WAVE:
-			if (rv_open_device() < 0) {
-				rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
-				return RV_FAILURE;
-			}
-			if (rv_send_init(RV_MODE_WAVE, speed)) {
-				rv_printf(RV_LOG_NORMAL, "Error: Failed to send wave effect sequence.\n");
+			if (rv_prepare_runtime(RV_MODE_WAVE, speed, "wave") != RV_SUCCESS) {
 				return RV_FAILURE;
 			}
 			rv_printf(RV_LOG_NORMAL, "Wave effect sequence sent, quitting.\n");
@@ -240,20 +259,9 @@ int main(int argc, char* argv[])
 				rv_printf(RV_LOG_NORMAL, "Command format: keyName:r,g,b\n");
 				rv_printf(RV_LOG_NORMAL, "Keynames are evdev KEY_* constants, or 'all'.\n");
 				rv_printf(RV_LOG_NORMAL, "RGB values should be in the effective range of 0..255.\n");
-				if (rv_open_device() < 0) {
-					rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+				if (rv_prepare_runtime(RV_MODE_FX, -1, "piped") != RV_SUCCESS) {
 					return RV_FAILURE;
 				}
-
-				if (rv_send_init(RV_MODE_FX, -1)) {
-					rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
-					return RV_FAILURE;
-				}
-
-				if (rv_fx_init() != 0) {
-					rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
-					return RV_FAILURE;
-				};
 
 				rv_fx_piped(file_name);
 			}
@@ -266,20 +274,9 @@ int main(int argc, char* argv[])
 					rv_printf(RV_LOG_NORMAL, "%d     % 7hd% 7hd% 7hd  %s\n", i, rv_colors[i].r, rv_colors[i].g, rv_colors[i].b, rv_colors_desc[i]);
 				}
 
-				if (rv_open_device() < 0) {
-					rv_printf(RV_LOG_NORMAL, "Error: Unable to find keyboard\n");
+				if (rv_prepare_runtime(RV_MODE_FX, -1, "impact") != RV_SUCCESS) {
 					return RV_FAILURE;
 				}
-
-				if (rv_send_init(RV_MODE_FX, -1)) {
-					rv_printf(RV_LOG_NORMAL, "Error: Failed to send initialization sequence.\n");
-					return RV_FAILURE;
-				}
-
-				if (rv_fx_init() != 0) {
-					rv_printf(RV_LOG_NORMAL, "Error: Failed to initialize LEDs\n");
-					return RV_FAILURE;
-				};
 
 				rv_fx_impact();
 			}

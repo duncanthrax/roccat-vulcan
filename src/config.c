@@ -1,17 +1,28 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
 
-static int rv_parse_int(const char *value, int *out) {
+static char *rv_trim_whitespace(char *text) {
     char *end = NULL;
-    long parsed = strtol(value, &end, 10);
-    if (!value || !*value || end == value || *end != '\0') {
-        return RV_FAILURE;
+
+    while (*text != '\0' && isspace((unsigned char)*text)) {
+        text++;
     }
-    *out = (int)parsed;
-    return RV_SUCCESS;
+
+    if (*text == '\0') {
+        return text;
+    }
+
+    end = text + strlen(text);
+    while (end > text && isspace((unsigned char)*(end - 1))) {
+        --end;
+    }
+    *end = '\0';
+
+    return text;
 }
 
 int rv_parse_color_assignment(const char *line, int *color_idx, rv_rgb *rgb) {
@@ -58,21 +69,40 @@ int rv_parse_layout_assignment(const char *line, int *layout) {
 int rv_apply_preset_file(const char *path, int *mode, int *speed, int *layout, rv_rgb colors[RV_NUM_COLORS], rv_rgb *fixed[RV_NUM_KEYS]) {
     FILE *fp = fopen(path, "r");
     char line[256];
+
     if (!fp) {
         return RV_FAILURE;
     }
-    if (mode) *mode = RV_MODE_FX;
-    if (speed) *speed = 6;
-    if (layout) *layout = RV_TOPO_ISO;
+
+    if (mode) {
+        *mode = RV_MODE_FX;
+    }
+    if (speed) {
+        *speed = 6;
+    }
+    if (layout) {
+        *layout = RV_TOPO_ISO;
+    }
+    if (fixed) {
+        memset(fixed, 0, sizeof(rv_rgb *) * RV_NUM_KEYS);
+    }
+
     while (fgets(line, sizeof(line), fp)) {
-        char *trim = line;
-        while (*trim == ' ' || *trim == '\t') trim++;
-        if (*trim == '\n' || *trim == '\0' || *trim == '#') continue;
+        char *trim = rv_trim_whitespace(line);
+
+        if (*trim == '\0' || *trim == '#') {
+            continue;
+        }
+
         if (strncmp(trim, "mode", 4) == 0) {
             char mode_name[32] = {0};
-            if (sscanf(trim, "mode %31s", mode_name) == 1) {
-                if (strcmp(mode_name, "wave") == 0 && mode) *mode = RV_MODE_WAVE;
-                else if (strcmp(mode_name, "fx") == 0 && mode) *mode = RV_MODE_FX;
+            if (sscanf(trim, "mode %31s", mode_name) == 1 && mode) {
+                if (strcmp(mode_name, "wave") == 0) {
+                    *mode = RV_MODE_WAVE;
+                }
+                else if (strcmp(mode_name, "fx") == 0) {
+                    *mode = RV_MODE_FX;
+                }
             }
         }
         else if (strncmp(trim, "speed", 5) == 0) {
@@ -95,6 +125,10 @@ int rv_apply_preset_file(const char *path, int *mode, int *speed, int *layout, r
             }
         }
     }
-    fclose(fp);
+
+    if (fclose(fp) != 0) {
+        return RV_FAILURE;
+    }
+
     return RV_SUCCESS;
 }

@@ -6,15 +6,21 @@ NAME    := roccat-vulcan
 BINDIR  := /usr/bin
 UDEVDIR := /etc/udev/rules.d
 PKG_CONFIG ?= pkg-config
-CFLAGS   += $(shell $(PKG_CONFIG) --cflags libevdev libhidapi-libusb libudev 2>/dev/null)
-LDFLAGS  += $(shell $(PKG_CONFIG) --libs libevdev libhidapi-libusb libudev 2>/dev/null)
+WARNFLAGS ?= -Wall -Wextra
+PKG_CFLAGS := $(shell $(PKG_CONFIG) --cflags libevdev libhidapi-libusb libudev 2>/dev/null)
+PKG_LDFLAGS := $(shell $(PKG_CONFIG) --libs libevdev libhidapi-libusb libudev 2>/dev/null)
 
-ifeq ($(strip $(CFLAGS)),)
+CFLAGS += $(WARNFLAGS)
+ifeq ($(strip $(PKG_CFLAGS)),)
 CFLAGS += -I/usr/include/libevdev-1.0
+else
+CFLAGS += $(PKG_CFLAGS)
 endif
 
-ifeq ($(strip $(LDFLAGS)),)
+ifeq ($(strip $(PKG_LDFLAGS)),)
 LDFLAGS += -levdev -lhidapi-libusb -ludev
+else
+LDFLAGS += $(PKG_LDFLAGS)
 endif
 
 .PHONY: all
