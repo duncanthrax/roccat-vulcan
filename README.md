@@ -46,8 +46,61 @@ sudo dnf install libevdev libevdev-devel systemd-devel libgudev1-devel libgudev1
   Bus 001 Device 035: ID 1e7d:307a ROCCAT
   ```
 
-  If your IDs aren't `1e7d:307a` or `1e7d:3098`, add an issue
-  about it.
+  The project now also accepts any Roccat keyboard with the
+  vendor ID `1e7d` and will try to discover the matching
+  HID interfaces automatically.
+* If the program prints an error about not finding the keyboard,
+  replug the device and rerun `sudo udevadm control --reload-rules && sudo udevadm trigger`.
+* If you are building from source on a different distro, install the
+  matching development packages for `libevdev`, `libhidapi`, and `libudev`.
+
+## Supported models and compatibility
+
+The project targets Roccat keyboards that expose the Roccat vendor ID `1e7d`.
+It has been tested against the Vulcan 100/120 family and is designed to auto-discover
+matching HID interfaces for compatible devices. If your keyboard is not detected,
+collect the USB IDs with `lsusb` and check the verbose output from the program.
+
+## Preset configuration
+
+You can now load a preset file from disk with the `-f` option. Each line accepts
+simple directives such as:
+
+```text
+mode wave
+speed 8
+layout ansi
+color 0 10 20 30
+```
+
+Example:
+
+```bash
+./src/roccat-vulcan -f ./presets/default.conf
+```
+
+## Development and CI
+
+The repository includes a simple smoke test and a GitHub Actions workflow that
+builds the project and runs the smoke test on every push or pull request.
+
+```bash
+make -C src
+./tests/smoke.sh
+```
+
+To install the built binary and udev rules system-wide:
+
+```bash
+sudo make -C src install
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+To remove them again:
+
+```bash
+sudo make -C src uninstall
+```
 
 ## Changing effect colors
 Effects use up to 10 colors which can be changed by specifying
@@ -88,3 +141,23 @@ start-stop-daemon -S -b -x /usr/bin/roccat-vulcan -- [options]
 
 This will prevent from running the binary twice. You can put
 this in `/etc/rc.local` or other equivalent locations.
+
+Example service snippet:
+
+```bash
+sudo tee /etc/systemd/system/roccat-vulcan.service >/dev/null <<'EOF'
+[Unit]
+Description=Roccat Vulcan LED service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/roccat-vulcan -f /etc/roccat-vulcan/preset.conf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now roccat-vulcan
+```

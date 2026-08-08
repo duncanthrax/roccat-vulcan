@@ -130,7 +130,7 @@ int cmp_file(char *fpath, char *string) {
 	char data[RV_MAX_CMP_CHARS];
 	int fd, i;
 	fd = open(fpath, O_RDONLY);
-	if (!fd) return RV_FAILURE;
+	if (fd < 0) return RV_FAILURE;
 	i = read(fd, data, RV_MAX_CMP_CHARS);
 	close(fd);
 	if (i < strlen(string)) return RV_FAILURE;
@@ -157,41 +157,33 @@ int rv_init_evdev(int grab) {
 
 	int evdev_idx = 0;
 	if (num_devs >= 0) {
-		int p = 0;
-		while (rv_products_str[p]) {
-			for (int i = 0; i < num_devs; i++) {
-				char fpath[RV_MAX_STR+1];
-				snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/product", event_dev_list[i]->d_name);
-				if (cmp_file(fpath, rv_products_str[p]) == RV_SUCCESS) {
-					snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/vendor", event_dev_list[i]->d_name);
-					if (cmp_file(fpath, RV_VENDOR_STR) == RV_SUCCESS) {
-						char event_dev[RV_MAX_STR+1];
-						snprintf(event_dev, RV_MAX_STR, "/dev/input/%s", event_dev_list[i]->d_name);
+		for (int i = 0; i < num_devs; i++) {
+			char fpath[RV_MAX_STR+1];
+			snprintf(fpath, RV_MAX_STR, "/sys/class/input/%s/device/id/vendor", event_dev_list[i]->d_name);
+			if (cmp_file(fpath, RV_VENDOR_STR) == RV_SUCCESS) {
+				char event_dev[RV_MAX_STR+1];
+				snprintf(event_dev, RV_MAX_STR, "/dev/input/%s", event_dev_list[i]->d_name);
 
-						int evdev_fd = open(event_dev, O_RDONLY|O_NONBLOCK);
-						if (evdev_fd >= 0) {
-							struct libevdev *evdev;
-							if (libevdev_new_from_fd(evdev_fd, &evdev) < 0) {
-								close(evdev_fd);
-							}
-							else {
-								if (libevdev_grab(evdev, LIBEVDEV_GRAB) < 0) {
-									rv_printf(RV_LOG_NORMAL, "Event input device %s is in exclusive use, skipping.\n", event_dev);
-									close(evdev_fd);
-								}
-								else {
-									if (!grab) libevdev_grab(evdev, LIBEVDEV_UNGRAB);
-									rv_evdev[evdev_idx++] = evdev;
-									rv_printf(RV_LOG_NORMAL, "Using event input device %s\n", event_dev);
-									if (evdev_idx == RV_MAX_EVDEV_DEVICES) break;
-								}
-							}
+				int evdev_fd = open(event_dev, O_RDONLY|O_NONBLOCK);
+				if (evdev_fd >= 0) {
+					struct libevdev *evdev;
+					if (libevdev_new_from_fd(evdev_fd, &evdev) < 0) {
+						close(evdev_fd);
+					}
+					else {
+						if (libevdev_grab(evdev, LIBEVDEV_GRAB) < 0) {
+							rv_printf(RV_LOG_NORMAL, "Event input device %s is in exclusive use, skipping.\n", event_dev);
+							close(evdev_fd);
+						}
+						else {
+							if (!grab) libevdev_grab(evdev, LIBEVDEV_UNGRAB);
+							rv_evdev[evdev_idx++] = evdev;
+							rv_printf(RV_LOG_NORMAL, "Using event input device %s\n", event_dev);
+							if (evdev_idx == RV_MAX_EVDEV_DEVICES) break;
 						}
 					}
 				}
 			}
-			if (evdev_idx == RV_MAX_EVDEV_DEVICES) break;
-			p++;
 		}
 	}
 	else {
@@ -199,6 +191,9 @@ int rv_init_evdev(int grab) {
 		return(RV_FAILURE);
 	}
 
+	for (int i = 0; i < num_devs; i++) {
+		free(event_dev_list[i]);
+	}
 	free(event_dev_list);
 
 	if (!evdev_idx) {

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -18,11 +19,11 @@
 #define RV_LED_INTERFACE  3
 
 hid_device *led_device;
-int ctrl_device;
+int ctrl_device = -1;
 
 void rv_close_ctrl_device() {
-	if (ctrl_device) close(ctrl_device);
-	ctrl_device = 0;
+	if (ctrl_device >= 0) close(ctrl_device);
+	ctrl_device = -1;
 }
 
 int hidraw_get_feature_report(int fd, unsigned char *buf, int size) {
@@ -43,112 +44,115 @@ int hidraw_send_feature_report(int fd, unsigned char *buf, int size) {
 	return size;
 }
 
-int rv_open_device() {
+static int rv_find_ctrl_device(unsigned short product_id) {
+	rv_close_ctrl_device();
 
-	// Loop through product IDs.
-	int p = 0;
-	while (rv_products[p]) {
-		unsigned short product_id = rv_products[p];
-
-		// For LED device, use hidapi-libusb, since we need to disconnect it
-		// from the default kernel driver.
-
-		struct hid_device_info *dev, *devs = NULL;
-		led_device = NULL;
-		devs = hid_enumerate(RV_VENDOR, product_id);
-		dev = devs;
-		while (dev) {
-			if (dev->interface_number == RV_LED_INTERFACE) {
-				rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): LED interface at USB path %s\n", RV_VENDOR, product_id, dev->path);
-				led_device = hid_open_path(dev->path);
-				if (!led_device) {
-					rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open LED interface %s\n", RV_VENDOR, product_id, dev->path);
-					goto NEXT_PRODUCT;
-				}
-				if (hid_set_nonblocking(led_device, 1) < 0) {
-					rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to set LED interface %s to non-blocking mode\n", RV_VENDOR, product_id, dev->path);
-					goto NEXT_PRODUCT;
-				};
-			}
-			else {
-				rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): ignoring non-LED interface #%d\n", RV_VENDOR, product_id, dev->interface_number);
-			}
-			dev = dev->next;
-		}
-
-		if (!led_device) {
-			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No LED device found\n", RV_VENDOR, product_id);
-			goto NEXT_PRODUCT;
-		}
-
-		if (devs) { hid_free_enumeration(devs); devs = NULL; };
-
-		// For CTRL device, use native HIDRAW access. After sending the init
-		// sequence, we will close it.
-
-		struct udev *udev = udev_new();
-		struct udev_enumerate *enumerate = udev_enumerate_new(udev);
-		udev_enumerate_add_match_subsystem(enumerate, "hidraw");
-		udev_enumerate_scan_devices(enumerate);
-
-		struct udev_list_entry *entries = udev_enumerate_get_list_entry(enumerate);
-		struct udev_list_entry *cur;
-		udev_list_entry_foreach(cur, entries) {
-			struct udev_device *usb_dev = NULL;
-			struct udev_device *raw_dev = NULL;
-			const char *sysfs_path = udev_list_entry_get_name(cur);
-			if (!sysfs_path) goto NEXT_ENTRY;
-
-			raw_dev = udev_device_new_from_syspath(udev, sysfs_path);
-			const char *dev_path = udev_device_get_devnode(raw_dev);
-			if (!dev_path) goto NEXT_ENTRY;
-
-			usb_dev = udev_device_get_parent_with_subsystem_devtype(
-				raw_dev,
-				"usb",
-				"usb_interface");
-			if (!usb_dev) goto NEXT_ENTRY;
-
-			const char *info = udev_device_get_sysattr_value(usb_dev, "uevent");
-			if (!info) goto NEXT_ENTRY;
-
-			const char *itf = udev_device_get_sysattr_value(usb_dev, "bInterfaceNumber");
-			if (!itf) goto NEXT_ENTRY;
-
-			// We're looking for vid/pid and interface number
-			if (atoi(itf) == RV_CTRL_INTERFACE) {
-				char searchstr[64];
-				snprintf(searchstr, 64, "PRODUCT=%hx/%hx", RV_VENDOR, product_id);
-
-				if (strstr(info, searchstr) != NULL) {
-					ctrl_device = open(dev_path, O_RDWR|O_NONBLOCK);
-					if (!ctrl_device) {
-						rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open CTRL device at %s\n", RV_VENDOR, product_id, dev_path);
-						goto NEXT_ENTRY;
-					}
-					rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): CTRL interface at %s\n", RV_VENDOR, product_id, dev_path);
-					break;
-				}
-			}
-
-			NEXT_ENTRY:
-			if (raw_dev) udev_device_unref(raw_dev);
-		}
-
-		if (!ctrl_device) {
-			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No CTRL device found\n", RV_VENDOR, product_id);
-			goto NEXT_PRODUCT;
-		}
-
-		return 0;
-
-		NEXT_PRODUCT:
-		if (devs) { hid_free_enumeration(devs); devs = NULL; };
-		if (led_device) hid_close(led_device);
-		p++;
+	struct udev *udev = udev_new();
+	if (!udev) {
+		return RV_FAILURE;
 	}
 
-	return -1;
+	struct udev_enumerate *enumerate = udev_enumerate_new(udev);
+	if (!enumerate) {
+		udev_unref(udev);
+		return RV_FAILURE;
+	}
+
+	udev_enumerate_add_match_subsystem(enumerate, "hidraw");
+	udev_enumerate_scan_devices(enumerate);
+
+	struct udev_list_entry *entries = udev_enumerate_get_list_entry(enumerate);
+	struct udev_list_entry *cur;
+	struct udev_device *usb_dev = NULL;
+	struct udev_device *raw_dev = NULL;
+	udev_list_entry_foreach(cur, entries) {
+		usb_dev = NULL;
+		raw_dev = NULL;
+		const char *sysfs_path = udev_list_entry_get_name(cur);
+		if (!sysfs_path) goto NEXT_ENTRY;
+
+		raw_dev = udev_device_new_from_syspath(udev, sysfs_path);
+		const char *dev_path = udev_device_get_devnode(raw_dev);
+		if (!dev_path) goto NEXT_ENTRY;
+
+		usb_dev = udev_device_get_parent_with_subsystem_devtype(
+			raw_dev,
+			"usb",
+			"usb_interface");
+		if (!usb_dev) goto NEXT_ENTRY;
+
+		const char *vendor = udev_device_get_sysattr_value(usb_dev, "idVendor");
+		const char *product = udev_device_get_sysattr_value(usb_dev, "idProduct");
+		const char *itf = udev_device_get_sysattr_value(usb_dev, "bInterfaceNumber");
+		if (!vendor || !product || !itf) goto NEXT_ENTRY;
+
+		unsigned int vendor_id = strtoul(vendor, NULL, 16);
+		unsigned int product_id_value = strtoul(product, NULL, 16);
+		if (vendor_id != RV_VENDOR || atoi(itf) != RV_CTRL_INTERFACE) goto NEXT_ENTRY;
+		if (product_id != 0 && product_id_value != product_id) goto NEXT_ENTRY;
+
+		int fd = open(dev_path, O_RDWR|O_NONBLOCK);
+		if (fd < 0) {
+			rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open CTRL device at %s (errno=%d: %s)\n", RV_VENDOR, product_id, dev_path, errno, strerror(errno));
+			goto NEXT_ENTRY;
+		}
+
+		ctrl_device = fd;
+		rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): CTRL interface at %s [vendor=0x%04x product=0x%04x interface=%s]\n", RV_VENDOR, product_id, dev_path, vendor_id, product_id_value, itf);
+		goto FOUND;
+
+		NEXT_ENTRY:
+		if (raw_dev) udev_device_unref(raw_dev);
+	}
+
+	udev_enumerate_unref(enumerate);
+	udev_unref(udev);
+	return RV_FAILURE;
+
+	FOUND:
+	if (raw_dev) udev_device_unref(raw_dev);
+	udev_enumerate_unref(enumerate);
+	udev_unref(udev);
+	return RV_SUCCESS;
+}
+
+int rv_open_device() {
+	struct hid_device_info *dev, *devs = NULL;
+	led_device = NULL;
+
+	// For LED device, use hidapi-libusb, since we need to disconnect it
+	// from the default kernel driver.
+	devs = hid_enumerate(RV_VENDOR, 0);
+	dev = devs;
+	while (dev) {
+		if (dev->vendor_id == RV_VENDOR && dev->interface_number == RV_LED_INTERFACE) {
+			rv_printf(RV_LOG_NORMAL, "open_device(%04hx, %04hx): LED interface at USB path %s [vendor=0x%04x product=0x%04x interface=%d]\n", RV_VENDOR, dev->product_id, dev->path, dev->vendor_id, dev->product_id, dev->interface_number);
+			led_device = hid_open_path(dev->path);
+			if (!led_device) {
+				rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to open LED interface %s\n", RV_VENDOR, dev->product_id, dev->path);
+			}
+			else if (hid_set_nonblocking(led_device, 1) < 0) {
+				rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): Unable to set LED interface %s to non-blocking mode\n", RV_VENDOR, dev->product_id, dev->path);
+				hid_close(led_device);
+				led_device = NULL;
+			}
+			else if (rv_find_ctrl_device(dev->product_id) == RV_SUCCESS) {
+				if (devs) { hid_free_enumeration(devs); devs = NULL; };
+				return RV_SUCCESS;
+			}
+			else {
+				rv_printf(RV_LOG_VERBOSE, "open_device(%04hx, %04hx): No CTRL device found for LED path %s (expected interface %d, vendor=0x%04x product=0x%04x)\n", RV_VENDOR, dev->product_id, dev->path, RV_CTRL_INTERFACE, RV_VENDOR, dev->product_id);
+				if (led_device) {
+					hid_close(led_device);
+					led_device = NULL;
+				}
+			}
+		}
+		dev = dev->next;
+	}
+
+	if (devs) { hid_free_enumeration(devs); devs = NULL; };
+	return RV_FAILURE;
 }
 
 int rv_wait_for_ctrl_device() {
