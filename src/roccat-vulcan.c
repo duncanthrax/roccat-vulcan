@@ -11,8 +11,8 @@
 #define FX_MODE_PIPED 1
 
 // Globals
-uint16_t rv_products[3]   = { 0x3098, 0x307a,  0x0000 };
-char * rv_products_str[3] = { "3098", "307a",  NULL };
+uint16_t rv_products[]   = { 0x307a, 0x3098, 0x0000 };
+char * rv_products_str[] = { "307a", "3098", NULL };
 int rv_verbose = 0;
 rv_rgb rv_colors[RV_NUM_COLORS] = {
 	{ .r = 0x0000, .g = 0x0000, .b =  0x0077 },
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 
 	rv_printf(RV_LOG_NORMAL, "ROCCAT Vulcan for Linux [github.com/duncanthrax/roccat-vulcan]\n");
 
-	while ((opt = getopt(argc, argv, "hvw:p:c:k:b:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "hvw:p:c:k:b:t:f:")) != -1) {
 		switch (opt) {
 			case 'h':
 				show_usage(argv[0]);
@@ -183,6 +183,12 @@ int main(int argc, char* argv[])
 			case 'p':
 				fx_mode = FX_MODE_PIPED;
 				file_name = optarg;
+			break;
+			case 'f':
+				if (rv_apply_preset_file(optarg, &mode, &speed, &rv_topo_model, rv_colors, rv_fixed) != RV_SUCCESS) {
+					rv_printf(RV_LOG_NORMAL, "Error: Unable to read preset file '%s'\n", optarg);
+					return RV_FAILURE;
+				}
 			break;
 			default:
 				show_usage(argv[0]);

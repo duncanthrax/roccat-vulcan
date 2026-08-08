@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, fedora-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libevdev-dev libhidapi-dev libudev-dev
+      - name: Install dependencies (Fedora)
+        if: runner.os == 'Linux' && matrix.os == 'fedora-latest'
+        run: |
+          sudo dnf install -y make gcc libevdev-devel hidapi-devel systemd-devel libgudev1-devel libgudev1 pkgconfig
+      - name: Build
+        run: |
+          make -C src
+      - name: Config parser test
+        run: |
+          make -C src test-config
+          ./tests/test_config
+      - name: Smoke test
+        run: |
+          chmod +x tests/smoke.sh
+          ./tests/smoke.sh

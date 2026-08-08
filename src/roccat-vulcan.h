@@ -53,8 +53,8 @@ extern rv_rgb rv_color_off;
 
 // Globals (roccat-vulcan.c)
 extern int rv_verbose;
-extern uint16_t rv_products[3];
-extern char * rv_products_str[3];
+extern uint16_t rv_products[];
+extern char * rv_products_str[];
 extern rv_rgb* rv_fixed[RV_NUM_KEYS];
 
 // HID I/O functions (hid.c)
@@ -64,6 +64,8 @@ int rv_get_ctrl_report(unsigned char report_id);
 int rv_set_ctrl_report(unsigned char report_id, int mode, int byteopt);
 int rv_send_led_map(rv_rgb_map *map);
 int rv_send_init(int type, int opt);
+
+#include "config.h"
 
 // Logging I/O functions (output.c)
 void rv_print_buffer(unsigned char *buffer, int len);
